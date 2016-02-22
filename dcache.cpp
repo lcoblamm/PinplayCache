@@ -123,6 +123,8 @@ typedef  COUNTER_ARRAY<UINT64, COUNTER_NUM> COUNTER_HIT_MISS;
 // conceptually this is an array indexed by instruction address
 COMPRESSOR_COUNTER<ADDRINT, UINT32, COUNTER_HIT_MISS> profile;
 
+static UINT64 icount = 0;
+
 /* ===================================================================== */
 
 VOID LoadMulti(ADDRINT addr, UINT32 size, UINT32 instId)
@@ -196,12 +198,30 @@ VOID StoreSingleFast(ADDRINT addr)
     dl1->AccessSingleLine(addr, CACHE_BASE::ACCESS_TYPE_STORE);    
 }
 
+/* ===================================================================== */
+VOID docount(UINT32 c) 
+{ 
+  icount += c; 
+}
 
+
+/* ===================================================================== */
+
+VOID Trace(TRACE trace, VOID *v)
+{
+  // Visit every basic block  in the trace
+  for (BBL bbl = TRACE_BblHead(trace); BBL_Valid(bbl); bbl = BBL_Next(bbl))
+    {
+      // Insert a call to docount before every bbl, passing the number of instructions
+      BBL_InsertCall(bbl, IPOINT_BEFORE, (AFUNPTR)docount, IARG_UINT32, BBL_NumIns(bbl), IARG_END);
+    }
+}
 
 /* ===================================================================== */
 
 VOID Instruction(INS ins, void * v)
 {
+  // if memory read not gather/scatter instruction
     if (INS_IsMemoryRead(ins) && INS_IsStandardMemop(ins))
     {
         // map sparse INS addresses to dense IDs
@@ -211,7 +231,7 @@ VOID Instruction(INS ins, void * v)
         const UINT32 size = INS_MemoryReadSize(ins);
         const BOOL   single = (size <= 4);
                 
-        if( KnobTrackLoads )
+        if( KnobTrackLoads.Value() )
         {
             if( single )
             {
@@ -252,7 +272,7 @@ VOID Instruction(INS ins, void * v)
             }
         }
     }
-        
+    // if memory write and not gaterh/scatter instruction
     if ( INS_IsMemoryWrite(ins) && INS_IsStandardMemop(ins))
     {
         // map sparse INS addresses to dense IDs
@@ -263,7 +283,7 @@ VOID Instruction(INS ins, void * v)
 
         const BOOL   single = (size <= 4);
                 
-        if( KnobTrackStores )
+        if( KnobTrackStores.Value() )
         {
             if( single )
             {
@@ -330,35 +350,18 @@ VOID Fini(int code, VOID * v)
     outFile << dl1->StatsLong("# ", CACHE_BASE::CACHE_TYPE_DCACHE);
     map<ADDRINT, long> temp_map = dl1->ReturnMap();
     map<ADDRINT, long> temp_map2 = dl1->Return_Replace_Map();
-    //long[] temp_array = dl1->ReturnArray();
-    //long temp2;
 
+    outFile << " Cache Access Replace Map " << endl << endl;
 
-    outFile << " Cache Access Replace Map "<<endl<<endl;
-//map<ADDRINT, long> mymap;
-// …
-
-vector<pair<ADDRINT, long> > mapcopy(temp_map.begin(), temp_map.end());
-sort(mapcopy.begin(), mapcopy.end(), less_second<ADDRINT, long>());
-typedef std::vector<pair<ADDRINT, long> > vector_type;
-for (vector_type::const_iterator it = mapcopy.begin();
-     it != mapcopy.end(); ++it)
-{
+    vector<pair<ADDRINT, long> > mapcopy(temp_map.begin(), temp_map.end());
+    sort(mapcopy.begin(), mapcopy.end(), less_second<ADDRINT, long>());
+    typedef std::vector<pair<ADDRINT, long> > vector_type;
+    for (vector_type::const_iterator it = mapcopy.begin();it != mapcopy.end(); ++it)
+    {
 	outFile << (void *)it->first << " : " << it->second <<" : "<< temp_map2.find(it->first)->second<<endl;
-}
+    }
 
-    //for (std::map<ADDRINT, long>::iterator it=temp_map.begin(); it!=temp_map.end(); ++it) {
-        //temp2 = it->second;
-	//fprintf(cache_trace, "%d : %ld\n", it->first, it->second);
-	//outFile << it->first <<" : " << it->second <<" : "<< temp_map2.find(it->first)->second << endl;
-	//}
-	//cout<<it->first<< " : "<<it->second<<endl;
-    	//fprintf(cache_trace, "%d : %l\n", it->first, it->second);
-   //for (int i=0; i< 1024; i++) {
-	//fprintf(cache_trace, "%d : %ld\n", i, temp_array[i]);
-   //}
-   //dl1->get_cache_references();
-    if( KnobTrackLoads || KnobTrackStores ) {
+    if ( KnobTrackLoads.Value() || KnobTrackStores.Value() ) {
         outFile <<
             "#\n"
             "# LOAD stats\n"
@@ -390,14 +393,10 @@ int main(int argc, char *argv[])
     cache_trace = fopen("cache_trace.out", "w");
 
     dl1 = new DL1::CACHE("L1 Data Cache", 
-			KILO*KILO*4,
-                         //KnobCacheSize.Value() * KILO * KILO,
+			 KILO*KILO*4,
                          KnobLineSize.Value(),
 			 KILO * 128);
-                         //KnobAssociativity.Value() * KILO);
-    //dl2 = new DL2::CACHE("l1 Data Cache",
-	//		 K
-    
+                           
     profile.SetKeyName("iaddr          ");
     profile.SetCounterName("dcache:miss        dcache:hit");
 
@@ -408,6 +407,7 @@ int main(int argc, char *argv[])
     
     profile.SetThreshold( threshold );
     
+    TRACE_AddInstrumentFunction(Trace, 0);
     INS_AddInstrumentFunction(Instruction, 0);
     PIN_AddFiniFunction(Fini, 0);
 
