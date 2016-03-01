@@ -124,6 +124,8 @@ typedef  COUNTER_ARRAY<UINT64, COUNTER_NUM> COUNTER_HIT_MISS;
 COMPRESSOR_COUNTER<ADDRINT, UINT32, COUNTER_HIT_MISS> profile;
 
 static UINT64 icount = 0;
+const UINT32 INSTR_COUNT_PRINT_INTERVAL = 100000;
+static UINT32 tempcount = 0;
 
 /* ===================================================================== */
 
@@ -199,9 +201,43 @@ VOID StoreSingleFast(ADDRINT addr)
 }
 
 /* ===================================================================== */
+template <typename T1, typename T2>
+struct less_second {
+  typedef pair<T1, T2> type;
+  bool operator ()(type const& a, type const& b) const {
+    return a.second < b.second;
+  }
+};
+
+/*
+  Prints contents of data cache access map at current instruction count
+*/
+VOID printDCache()
+{ 
+  map<ADDRINT, long> temp_map = dl1->ReturnMap();
+  map<ADDRINT, long> temp_map2 = dl1->Return_Replace_Map();
+
+  outFile << " Cache Access Replace Map at Instruction Count " << icount << std::endl << std::endl;
+
+  vector<pair<ADDRINT, long> > mapcopy(temp_map.begin(), temp_map.end());
+  sort(mapcopy.begin(), mapcopy.end(), less_second<ADDRINT, long>());
+  typedef std::vector<pair<ADDRINT, long> > vector_type;
+  for (vector_type::const_iterator it = mapcopy.begin();it != mapcopy.end(); ++it)
+  {
+    outFile << (void *)it->first << " : " << it->second << " : " << temp_map2.find(it->first)->second << std::endl;
+  }
+
+  outFile << std::endl << std::endl;
+}
+
 VOID docount(UINT32 c) 
 { 
   icount += c; 
+  tempcount += c;
+  if (tempcount >= INSTR_COUNT_PRINT_INTERVAL) {
+    tempcount -= INSTR_COUNT_PRINT_INTERVAL;
+    printDCache();
+  }
 }
 
 /* ===================================================================== */
@@ -311,50 +347,27 @@ VOID Instruction(INS ins, void * v)
 }
 
 /* ===================================================================== */
-template <typename T1, typename T2>
-struct less_second {
-    typedef pair<T1, T2> type;
-    bool operator ()(type const& a, type const& b) const {
-        return a.second < b.second;
-    }
-};
+
 VOID Fini(int code, VOID * v)
 {
     // print D-cache profile
-    
-    outFile << "PIN:MEMLATENCIES 1.0. 0x0\n";
-            
-    outFile <<
-        "#\n"
-        "# DCACHE stats\n"
-        "#\n";
-    
-    outFile << dl1->StatsLong("# ", CACHE_BASE::CACHE_TYPE_DCACHE);
-    map<ADDRINT, long> temp_map = dl1->ReturnMap();
-    map<ADDRINT, long> temp_map2 = dl1->Return_Replace_Map();
+  printDCache();
+  outFile << "PIN:MEMLATENCIES 1.0. 0x0\n";
 
-    outFile << " Cache Access Replace Map " << endl << endl;
-
-    vector<pair<ADDRINT, long> > mapcopy(temp_map.begin(), temp_map.end());
-    sort(mapcopy.begin(), mapcopy.end(), less_second<ADDRINT, long>());
-    typedef std::vector<pair<ADDRINT, long> > vector_type;
-    for (vector_type::const_iterator it = mapcopy.begin();it != mapcopy.end(); ++it)
-    {
-	outFile << (void *)it->first << " : " << it->second <<" : "<< temp_map2.find(it->first)->second<<endl;
-    }
-
-    outFile << "Number of total instructions: " << icount << endl;
-
-    if ( KnobTrackLoads.Value() || KnobTrackStores.Value() ) {
-        outFile <<
-            "#\n"
-            "# LOAD stats\n"
-            "#\n";
+  outFile << dl1->StatsLong("# ", CACHE_BASE::CACHE_TYPE_DCACHE);  
         
-        outFile << profile.StringLong();
-    }
-    outFile.close();
-    fclose(cache_trace);
+  outFile << "Number of total instructions: " << icount << endl;
+
+  if ( KnobTrackLoads.Value() || KnobTrackStores.Value() ) {
+    outFile <<
+      "#\n"
+      "# LOAD stats\n"
+      "#\n";
+    
+    outFile << profile.StringLong();
+  }
+  outFile.close();
+  fclose(cache_trace);
 }
 
 /* ===================================================================== */
