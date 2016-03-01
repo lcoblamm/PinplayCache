@@ -204,7 +204,6 @@ VOID docount(UINT32 c)
   icount += c; 
 }
 
-
 /* ===================================================================== */
 
 VOID Trace(TRACE trace, VOID *v)
@@ -222,109 +221,93 @@ VOID Trace(TRACE trace, VOID *v)
 VOID Instruction(INS ins, void * v)
 {
   // if memory read not gather/scatter instruction
-    if (INS_IsMemoryRead(ins) && INS_IsStandardMemop(ins))
-    {
-        // map sparse INS addresses to dense IDs
-        const ADDRINT iaddr = INS_Address(ins);
-        const UINT32 instId = profile.Map(iaddr);
-
-        const UINT32 size = INS_MemoryReadSize(ins);
-        const BOOL   single = (size <= 4);
-                
-        if( KnobTrackLoads.Value() )
-        {
-            if( single )
-            {
-                INS_InsertPredicatedCall(
-                    ins, IPOINT_BEFORE, (AFUNPTR) LoadSingle,
+  if (INS_IsMemoryRead(ins) && INS_IsStandardMemop(ins))
+  {
+      // map sparse INS addresses to dense IDs
+      const ADDRINT iaddr = INS_Address(ins);
+      const UINT32 instId = profile.Map(iaddr);
+      
+      const UINT32 size = INS_MemoryReadSize(ins);
+      const BOOL   single = (size <= 4);
+      
+      if( KnobTrackLoads.Value() ) {
+	if( single ) {
+	  INS_InsertPredicatedCall(
+		    ins, IPOINT_BEFORE, (AFUNPTR) LoadSingle,
                     IARG_MEMORYREAD_EA,
                     IARG_UINT32, instId,
                     IARG_END);
-            }
-            else
-            {
-                INS_InsertPredicatedCall(
+	}
+	else {
+	  INS_InsertPredicatedCall(
                     ins, IPOINT_BEFORE,  (AFUNPTR) LoadMulti,
                     IARG_MEMORYREAD_EA,
                     IARG_MEMORYREAD_SIZE,
                     IARG_UINT32, instId,
                     IARG_END);
-            }
-                
-        }
-        else
-        {
-            if( single )
-            {
-                INS_InsertPredicatedCall(
-                    ins, IPOINT_BEFORE,  (AFUNPTR) LoadSingleFast,
+	}     
+      }
+      else {
+	if( single ) {
+	  INS_InsertPredicatedCall(
+		    ins, IPOINT_BEFORE,  (AFUNPTR) LoadSingleFast,
                     IARG_MEMORYREAD_EA,
                     IARG_END);
                         
-            }
-            else
-            {
-                INS_InsertPredicatedCall(
+	}
+	else {
+	  INS_InsertPredicatedCall(
                     ins, IPOINT_BEFORE,  (AFUNPTR) LoadMultiFast,
                     IARG_MEMORYREAD_EA,
                     IARG_MEMORYREAD_SIZE,
                     IARG_END);
-            }
-        }
-    }
-    // if memory write and not gaterh/scatter instruction
-    if ( INS_IsMemoryWrite(ins) && INS_IsStandardMemop(ins))
-    {
-        // map sparse INS addresses to dense IDs
-        const ADDRINT iaddr = INS_Address(ins);
-        const UINT32 instId = profile.Map(iaddr);
-            
-        const UINT32 size = INS_MemoryWriteSize(ins);
-
-        const BOOL   single = (size <= 4);
-                
-        if( KnobTrackStores.Value() )
-        {
-            if( single )
-            {
-                INS_InsertPredicatedCall(
+	}
+      }
+  }
+  // if memory write and not gather/scatter instruction
+  if ( INS_IsMemoryWrite(ins) && INS_IsStandardMemop(ins)) {
+    // map sparse INS addresses to dense IDs
+    const ADDRINT iaddr = INS_Address(ins);
+    const UINT32 instId = profile.Map(iaddr);
+    
+    const UINT32 size = INS_MemoryWriteSize(ins);
+    
+    const BOOL   single = (size <= 4);
+    
+    if( KnobTrackStores.Value() ) {
+      if( single ) {
+	INS_InsertPredicatedCall(
                     ins, IPOINT_BEFORE,  (AFUNPTR) StoreSingle,
                     IARG_MEMORYWRITE_EA,
                     IARG_UINT32, instId,
                     IARG_END);
-            }
-            else
-            {
-                INS_InsertPredicatedCall(
+      }
+      else {
+	INS_InsertPredicatedCall(
                     ins, IPOINT_BEFORE,  (AFUNPTR) StoreMulti,
                     IARG_MEMORYWRITE_EA,
                     IARG_MEMORYWRITE_SIZE,
                     IARG_UINT32, instId,
                     IARG_END);
-            }
-                
-        }
-        else
-        {
-            if( single )
-            {
+      }
+    }
+    else {
+      if( single ) {
                 INS_InsertPredicatedCall(
                     ins, IPOINT_BEFORE,  (AFUNPTR) StoreSingleFast,
                     IARG_MEMORYWRITE_EA,
                     IARG_END);
                         
-            }
-            else
-            {
+      }
+      else {
                 INS_InsertPredicatedCall(
                     ins, IPOINT_BEFORE,  (AFUNPTR) StoreMultiFast,
                     IARG_MEMORYWRITE_EA,
                     IARG_MEMORYWRITE_SIZE,
                     IARG_END);
-            }
-        }
-            
+      }
     }
+  }
 }
 
 /* ===================================================================== */
@@ -338,7 +321,6 @@ struct less_second {
 VOID Fini(int code, VOID * v)
 {
     // print D-cache profile
-    // @todo what does this print
     
     outFile << "PIN:MEMLATENCIES 1.0. 0x0\n";
             
@@ -360,6 +342,8 @@ VOID Fini(int code, VOID * v)
     {
 	outFile << (void *)it->first << " : " << it->second <<" : "<< temp_map2.find(it->first)->second<<endl;
     }
+
+    outFile << "Number of total instructions: " << icount << endl;
 
     if ( KnobTrackLoads.Value() || KnobTrackStores.Value() ) {
         outFile <<
