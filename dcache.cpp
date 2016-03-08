@@ -244,6 +244,7 @@ VOID docount(UINT32 c)
   if (tempcount >= INSTR_COUNT_PRINT_INTERVAL) {
     tempcount -= INSTR_COUNT_PRINT_INTERVAL;
     printDCache();
+    dl1->ClearMaps();
   }
 }
 

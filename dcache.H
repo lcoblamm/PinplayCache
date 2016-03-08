@@ -343,6 +343,7 @@ class CACHE_BASE
     string StatsLong(string prefix = "", CACHE_TYPE = CACHE_TYPE_DCACHE) const;
     map<ADDRINT, long> ReturnMap();
     map<ADDRINT, long> Return_Replace_Map();
+    void ClearMaps();
 };
 
 CACHE_BASE::CACHE_BASE(std::string name, UINT32 cacheSize, UINT32 lineSize, UINT32 associativity)
@@ -373,6 +374,12 @@ map<ADDRINT, long> CACHE_BASE::ReturnMap() {
 map<ADDRINT, long> CACHE_BASE::Return_Replace_Map() {
 	return cache_replace_map;
 }
+
+void CACHE_BASE::ClearMaps() {
+  cache_access_map.clear();
+  cache_replace_map.clear();
+}
+
 string CACHE_BASE::StatsLong(string prefix, CACHE_TYPE cache_type) const
 {
     const UINT32 headerWidth = 19;
