@@ -73,7 +73,7 @@ KNOB<UINT32> KnobThresholdMiss(KNOB_MODE_WRITEONCE, "pintool",
 KNOB<UINT32> KnobCacheSize(KNOB_MODE_WRITEONCE, "pintool",
     "c","32", "cache size in kilobytes");
 KNOB<UINT32> KnobLineSize(KNOB_MODE_WRITEONCE, "pintool",
-    "b","32", "cache block size in bytes");
+    "b","64", "cache block size in bytes");
 KNOB<UINT32> KnobAssociativity(KNOB_MODE_WRITEONCE, "pintool",
     "a","4", "cache associativity (1 for direct mapped)"); //1000
 
@@ -224,7 +224,14 @@ VOID printDCache()
   typedef std::vector<pair<ADDRINT, long> > vector_type;
   for (vector_type::const_iterator it = mapcopy.begin();it != mapcopy.end(); ++it)
   {
-    outFile << (void *)it->first << " : " << it->second << " : " << temp_map2.find(it->first)->second << std::endl;
+    outFile << (void *)it->first << " : " << it->second << " : ";
+    std::map<ADDRINT, long>::iterator itReplace = temp_map2.find(it->first);
+    if (itReplace == temp_map2.end()) {
+      outFile << "0" << std::endl;
+    }
+    else {
+      outFile << itReplace->second << std::endl;
+    }
   }
 
   outFile << std::endl << std::endl;
@@ -390,9 +397,9 @@ int main(int argc, char *argv[])
     cache_trace = fopen("cache_trace.out", "w");
 
     dl1 = new DL1::CACHE("L1 Data Cache", 
-			 KILO*KILO*4,
+			 KILO*32,
                          KnobLineSize.Value(),
-			 KILO * 128);
+			 4);
                            
     profile.SetKeyName("iaddr          ");
     profile.SetCounterName("dcache:miss        dcache:hit");
