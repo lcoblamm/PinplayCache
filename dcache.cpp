@@ -54,7 +54,7 @@ KNOB<BOOL> KnobPinPlayReplayer(KNOB_MODE_WRITEONCE,
                       "pintool", "replay", "0",
                       "Activate the pinplay replayer");
 std::ofstream outFile;
-FILE * cache_trace;
+std::ofstream csvOutFile;
 
 /* ===================================================================== */
 /* Commandline Switches */
@@ -62,6 +62,8 @@ FILE * cache_trace;
 
 KNOB<string> KnobOutputFile(KNOB_MODE_WRITEONCE,    "pintool",
     "o", "dcache.out", "specify dcache file name");
+KNOB<string> KnobCSVOutputFile(KNOB_MODE_WRITEONCE, "pintool",
+    "csv", "dcachecsv.out", "specify csv file name");
 KNOB<BOOL>   KnobTrackLoads(KNOB_MODE_WRITEONCE,    "pintool",
     "tl", "0", "track individual loads -- increases profiling time");
 KNOB<BOOL>   KnobTrackStores(KNOB_MODE_WRITEONCE,   "pintool",
@@ -211,30 +213,22 @@ struct less_second {
 
 /*
   Prints contents of data cache access map at current instruction count
+  in csv format with icount,address,number of accesses
 */
-VOID printDCache()
+VOID printDCacheToCSV()
 { 
   map<ADDRINT, long> temp_map = dl1->ReturnMap();
   map<ADDRINT, long> temp_map2 = dl1->Return_Replace_Map();
-
-  outFile << " Cache Access Replace Map at Instruction Count " << icount << std::endl << std::endl;
 
   vector<pair<ADDRINT, long> > mapcopy(temp_map.begin(), temp_map.end());
   sort(mapcopy.begin(), mapcopy.end(), less_second<ADDRINT, long>());
   typedef std::vector<pair<ADDRINT, long> > vector_type;
   for (vector_type::const_iterator it = mapcopy.begin();it != mapcopy.end(); ++it)
   {
-    outFile << (void *)it->first << " : " << it->second << " : ";
-    std::map<ADDRINT, long>::iterator itReplace = temp_map2.find(it->first);
-    if (itReplace == temp_map2.end()) {
-      outFile << "0" << std::endl;
-    }
-    else {
-      outFile << itReplace->second << std::endl;
-    }
+    csvOutFile << icount << "," << (void *)it->first << "," << it->second << std::endl;
   }
 
-  outFile << std::endl << std::endl;
+  csvOutFile << std::endl;
 }
 
 VOID docount(UINT32 c) 
@@ -243,7 +237,7 @@ VOID docount(UINT32 c)
   tempcount += c;
   if (tempcount >= INSTR_COUNT_PRINT_INTERVAL) {
     tempcount -= INSTR_COUNT_PRINT_INTERVAL;
-    printDCache();
+    printDCacheToCSV();
     dl1->ClearMaps();
   }
 }
@@ -358,13 +352,15 @@ VOID Instruction(INS ins, void * v)
 
 VOID Fini(int code, VOID * v)
 {
-    // print D-cache profile
-  printDCache();
+  // print D-cache profile
+
   outFile << "PIN:MEMLATENCIES 1.0. 0x0\n";
 
   outFile << dl1->StatsLong("# ", CACHE_BASE::CACHE_TYPE_DCACHE);  
         
   outFile << "Number of total instructions: " << icount << endl;
+
+  printDCacheToCSV();
 
   if ( KnobTrackLoads.Value() || KnobTrackStores.Value() ) {
     outFile <<
@@ -375,7 +371,7 @@ VOID Fini(int code, VOID * v)
     outFile << profile.StringLong();
   }
   outFile.close();
-  fclose(cache_trace);
+  csvOutFile.close();
 }
 
 /* ===================================================================== */
@@ -395,7 +391,7 @@ int main(int argc, char *argv[])
       KnobPinPlayLogger, KnobPinPlayReplayer);
 
     outFile.open(KnobOutputFile.Value().c_str());
-    cache_trace = fopen("cache_trace.out", "w");
+    csvOutFile.open(KnobCSVOutputFile.Value().c_str());
 
     dl1 = new DL1::CACHE("L1 Data Cache", 
 			 KILO*32,
