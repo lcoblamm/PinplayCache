@@ -225,7 +225,7 @@ VOID printDCacheToCSV()
   typedef std::vector<pair<ADDRINT, long> > vector_type;
   for (vector_type::const_iterator it = mapcopy.begin();it != mapcopy.end(); ++it)
   {
-    csvOutFile << icount << "," << (void *)it->first << "," << it->second << std::endl;
+    csvOutFile << icount << "," << static_cast<UINT64>(it->first) << "," << it->second << std::endl;
   }
 
   csvOutFile << std::endl;
