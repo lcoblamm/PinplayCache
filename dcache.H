@@ -1,4 +1,4 @@
-1;95;0c/*BEGIN_LEGAL 
+/*BEGIN_LEGAL 
 Intel Open Source License 
 
 Copyright (c) 2002-2015 Intel Corporation. All rights reserved.
@@ -47,12 +47,13 @@ typedef UINT64 CACHE_STATS; // type of cache hit/miss counters
 
 #include <sstream>
 #include <vector>
+#include <map>
 
 /*! RMR (rodric@gmail.com) 
  *   - temporary work around because decstr()
  *     casts 64 bit ints to 32 bit ones
  */
-map<ADDRINT, std::vector<long>> cache_access_map;
+std::map<ADDRINT, std::vector<long> > cache_access_map;
 map<ADDRINT, long> cache_replace_map;
 long cache_array[1024] = {0};
 int cache_map_index = 0;
@@ -189,10 +190,12 @@ class ROUND_ROBIN
 	_tags[index].access();
 	if(_tags[index] == tag)
 	{
+	  // on first access, create vector filled with 0s up to this index 
 	  if ( cache_access_map.find(tag.return_tag()) == cache_access_map.end()) {
 	    cache_access_map[tag.return_tag()] = std::vector<long>(cache_map_index + 1, 0);
 	  }
 
+	  // fill any missing values in vector between last entry and this index with 0s
 	  for (int i = cache_access_map[tag.return_tag()].size() - 1; cache_access_map[tag.return_tag()].size() < cache_map_index + 1; i++) {
 	    cache_access_map[tag.return_tag()].push_back(0);
 	  }
@@ -208,31 +211,28 @@ class ROUND_ROBIN
 
     VOID Replace(CACHE_TAG tag)
     {
-/*
-	if ( cache_replace_map.find(tag.return_tag()) == cache_replace_map.end()) {
-		cache_replace_map[tag.return_tag()] = 1;
-	}
-	else {
-		cache_replace_map[tag.return_tag()] += 1;
-	}
-*/
-        // g++ -O3 too dumb to do CSE on following lines?!
-        const UINT32 index = _nextReplaceIndex;
-	if ( cache_replace_map.find(_tags[index].return_tag()) == cache_replace_map.end()) {
-		cache_replace_map[_tags[index].return_tag()] = 0;
-	}
+      const UINT32 index = _nextReplaceIndex;
+      if ( cache_replace_map.find(_tags[index].return_tag()) == cache_replace_map.end()) {
+	cache_replace_map[_tags[index].return_tag()] = 0;
+      }
 
-	cache_replace_map[_tags[index].return_tag()] += 1;
+      cache_replace_map[_tags[index].return_tag()] += 1;
 
-	if ( cache_access_map.find(tag.return_tag()) == cache_access_map.end()) {
-		cache_access_map[tag.return_tag()] = 0;
-	}
-	cache_access_map[tag.return_tag()] += 1;
+      // for first access, create a vector up to current index filled with 0s
+      if ( cache_access_map.find(tag.return_tag()) == cache_access_map.end()) {
+	cache_access_map[tag.return_tag()] = std::vector<long>(cache_map_index + 1, 0);
+      }
 
-        _tags[index] = tag;
-        // condition typically faster than modulo
-        _nextReplaceIndex = (index == 0 ? _tagsLastIndex : index - 1);
-        
+      // fill any missing values in vector between last entry and this index with 0s
+      for (int i = cache_access_map[tag.return_tag()].size() - 1; cache_access_map[tag.return_tag()].size() < cache_map_index + 1; i++) {
+	cache_access_map[tag.return_tag()].push_back(0);
+      }
+
+      cache_access_map[tag.return_tag()].at(cache_map_index) += 1;
+
+      _tags[index] = tag;
+      // condition typically faster than modulo
+      _nextReplaceIndex = (index == 0 ? _tagsLastIndex : index - 1);
     }
 
     VOID get_cache_tag_counts() {
@@ -334,7 +334,7 @@ class CACHE_BASE
     }
 
     string StatsLong(string prefix = "", CACHE_TYPE = CACHE_TYPE_DCACHE) const;
-    map<ADDRINT, long> ReturnMap();
+    map<ADDRINT, std::vector<long> > ReturnMap();
     map<ADDRINT, long> Return_Replace_Map();
     void ClearMaps();
     void IncrementCacheIndex();
@@ -362,7 +362,7 @@ CACHE_BASE::CACHE_BASE(std::string name, UINT32 cacheSize, UINT32 lineSize, UINT
 /*!
  *  @brief Stats output method
 */ 
-map<ADDRINT, long> CACHE_BASE::ReturnMap() {
+map<ADDRINT, std::vector<long> > CACHE_BASE::ReturnMap() {
 	return cache_access_map;
 }
 map<ADDRINT, long> CACHE_BASE::Return_Replace_Map() {

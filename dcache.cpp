@@ -43,9 +43,12 @@ END_LEGAL */
 
 #include <iostream>
 #include <fstream>
+#include <vector>
 #include "pinplay.H"
 #include "dcache.H"
 #include "pin_profile.H"
+
+
 PINPLAY_ENGINE pinplay_engine;
 KNOB<BOOL> KnobPinPlayLogger(KNOB_MODE_WRITEONCE,
                       "pintool", "log", "0",
@@ -128,6 +131,7 @@ COMPRESSOR_COUNTER<ADDRINT, UINT32, COUNTER_HIT_MISS> profile;
 static UINT64 icount = 0;
 const UINT32 INSTR_COUNT_PRINT_INTERVAL = 100000000;
 static UINT32 tempcount = 0;
+static std::vector<UINT64> icounts;
 
 /* ===================================================================== */
 
@@ -212,20 +216,33 @@ struct less_second {
 };
 
 /*
-  Prints contents of data cache access map at current instruction count
-  in csv format with icount,address,number of accesses
+  Prints contents of entire data cache access map in csv format with address
+  followed by each entry in the vector
 */
 VOID printDCacheToCSV()
 { 
-  map<ADDRINT, long> temp_map = dl1->ReturnMap();
-  map<ADDRINT, long> temp_map2 = dl1->Return_Replace_Map();
+  // print instruction counts as first row
+  std::vector<UINT64>::iterator vit = icounts.begin();
+  csvOutFile << *vit;
+  for (; vit != icounts.end(); ++vit) {
+    csvOutFile << "," << *vit;
+  }
+  csvOutFile << std::endl << std::endl;
 
-  vector<pair<ADDRINT, long> > mapcopy(temp_map.begin(), temp_map.end());
-  sort(mapcopy.begin(), mapcopy.end(), less_second<ADDRINT, long>());
-  typedef std::vector<pair<ADDRINT, long> > vector_type;
-  for (vector_type::const_iterator it = mapcopy.begin();it != mapcopy.end(); ++it)
+  map<ADDRINT, std::vector<long> > mapcopy = dl1->ReturnMap();
+  // print map contents
+  for (std::map<ADDRINT, std::vector<long> >::iterator it = mapcopy.begin(); it != mapcopy.end(); ++it)
   {
-    csvOutFile << icount << "," << static_cast<UINT64>(it->first) << "," << it->second << std::endl;
+    csvOutFile << static_cast<UINT64>(it->first);
+    // print out vector contents, filling with 0s to instruction count entries
+    unsigned int numIntervals = 0;
+    for (std::vector<long>::iterator j = it->second.begin(); j != it->second.end(); ++j, ++numIntervals) {
+      csvOutFile << "," << *j;
+    }
+    for (; numIntervals <= icounts.size(); ++numIntervals) {
+      csvOutFile << "," << 0;
+    }
+    csvOutFile << std::endl;
   }
 
   csvOutFile << std::endl;
@@ -237,8 +254,8 @@ VOID docount(UINT32 c)
   tempcount += c;
   if (tempcount >= INSTR_COUNT_PRINT_INTERVAL) {
     tempcount -= INSTR_COUNT_PRINT_INTERVAL;
-    printDCacheToCSV();
-    dl1->ClearMaps();
+    dl1->IncrementCacheIndex();
+    icounts.push_back(icount);
   }
 }
 
