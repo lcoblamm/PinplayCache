@@ -1,4 +1,4 @@
-/*BEGIN_LEGAL 
+1;95;0c/*BEGIN_LEGAL 
 Intel Open Source License 
 
 Copyright (c) 2002-2015 Intel Corporation. All rights reserved.
@@ -39,7 +39,6 @@ END_LEGAL */
 #ifndef PIN_CACHE_H
 #define PIN_CACHE_H
 
-
 #define KILO 1024
 #define MEGA (KILO*KILO)
 #define GIGA (KILO*MEGA)
@@ -47,14 +46,17 @@ END_LEGAL */
 typedef UINT64 CACHE_STATS; // type of cache hit/miss counters
 
 #include <sstream>
+#include <vector>
 
 /*! RMR (rodric@gmail.com) 
  *   - temporary work around because decstr()
  *     casts 64 bit ints to 32 bit ones
  */
-map<ADDRINT, long> cache_access_map;
+map<ADDRINT, std::vector<long>> cache_access_map;
 map<ADDRINT, long> cache_replace_map;
 long cache_array[1024] = {0};
+int cache_map_index = 0;
+
 static string mydecstr(UINT64 v, UINT32 w)
 {
     ostringstream o;
@@ -180,37 +182,28 @@ class ROUND_ROBIN
     
     UINT32 Find(CACHE_TAG tag)
     {
-        bool result = true;
+      bool result = true;
 
-        for (INT32 index = _tagsLastIndex; index >= 0; index--)
-        {
-            // this is an ugly micro-optimization, but it does cause a
-            // tighter assembly loop for ARM that way ...
-/*
-	    if (cache_map.find(index) == cache_map.end()) {
-	    	cache_map[index] = 1;
-	    }
-	    else {
-	    	cache_map[index] += 1;
-		//cout<< index<< ": "<<cache_map[index]<<endl;
-	    }
-*/
-	    //cache_array[index]++;
-            _tags[index].access();
-            if(_tags[index] == tag)
-	    {
-		if ( cache_access_map.find(tag.return_tag()) == cache_access_map.end()) {
-			cache_access_map[tag.return_tag()] = 0;
-		}
+      for (INT32 index = _tagsLastIndex; index >= 0; index--)
+      {
+	_tags[index].access();
+	if(_tags[index] == tag)
+	{
+	  if ( cache_access_map.find(tag.return_tag()) == cache_access_map.end()) {
+	    cache_access_map[tag.return_tag()] = std::vector<long>(cache_map_index + 1, 0);
+	  }
 
-		cache_access_map[tag.return_tag()] += 1;
-		 
-		goto end;
-	    }
-        }
-        result = false;
+	  for (int i = cache_access_map[tag.return_tag()].size() - 1; cache_access_map[tag.return_tag()].size() < cache_map_index + 1; i++) {
+	    cache_access_map[tag.return_tag()].push_back(0);
+	  }
 
-        end: return result;
+	  cache_access_map[tag.return_tag()].at(cache_map_index) += 1;
+	  goto end;
+	}
+      }
+      result = false;
+
+      end: return result;
     }
 
     VOID Replace(CACHE_TAG tag)
@@ -344,6 +337,7 @@ class CACHE_BASE
     map<ADDRINT, long> ReturnMap();
     map<ADDRINT, long> Return_Replace_Map();
     void ClearMaps();
+    void IncrementCacheIndex();
 };
 
 CACHE_BASE::CACHE_BASE(std::string name, UINT32 cacheSize, UINT32 lineSize, UINT32 associativity)
@@ -378,6 +372,10 @@ map<ADDRINT, long> CACHE_BASE::Return_Replace_Map() {
 void CACHE_BASE::ClearMaps() {
   cache_access_map.clear();
   cache_replace_map.clear();
+}
+
+void CACHE_BASE::IncrementCacheIndex() {
+  cache_map_index++;
 }
 
 string CACHE_BASE::StatsLong(string prefix, CACHE_TYPE cache_type) const

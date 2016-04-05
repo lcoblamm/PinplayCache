@@ -126,7 +126,7 @@ typedef  COUNTER_ARRAY<UINT64, COUNTER_NUM> COUNTER_HIT_MISS;
 COMPRESSOR_COUNTER<ADDRINT, UINT32, COUNTER_HIT_MISS> profile;
 
 static UINT64 icount = 0;
-const UINT32 INSTR_COUNT_PRINT_INTERVAL = 100000;
+const UINT32 INSTR_COUNT_PRINT_INTERVAL = 100000000;
 static UINT32 tempcount = 0;
 
 /* ===================================================================== */
