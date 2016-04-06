@@ -219,15 +219,18 @@ struct less_second {
   Prints contents of entire data cache access map in csv format with address
   followed by each entry in the vector
 */
-VOID printDCacheToCSV()
-{ 
-  // print instruction counts as first row
-  std::vector<UINT64>::iterator vit = icounts.begin();
-  csvOutFile << *vit;
-  for (; vit != icounts.end(); ++vit) {
-    csvOutFile << "," << *vit;
+VOID printDCacheToCSV() 
+{
+  if (icounts.size() == 0) {
+    // print instruction counts as first row
+    std::vector<UINT64>::iterator vit = icounts.begin();
+    csvOutFile << *vit;
+    for (; vit != icounts.end(); ++vit) {
+      std::cout << "," << *vit;
+      csvOutFile << "," << *vit;
+    }
+    csvOutFile << std::endl << std::endl;
   }
-  csvOutFile << std::endl << std::endl;
 
   map<ADDRINT, std::vector<long> > mapcopy = dl1->ReturnMap();
   // print map contents
@@ -253,9 +256,9 @@ VOID docount(UINT32 c)
   icount += c; 
   tempcount += c;
   if (tempcount >= INSTR_COUNT_PRINT_INTERVAL) {
+    icounts.push_back(icount);
     tempcount -= INSTR_COUNT_PRINT_INTERVAL;
     dl1->IncrementCacheIndex();
-    icounts.push_back(icount);
   }
 }
 
