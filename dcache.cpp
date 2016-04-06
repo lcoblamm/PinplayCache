@@ -129,7 +129,7 @@ typedef  COUNTER_ARRAY<UINT64, COUNTER_NUM> COUNTER_HIT_MISS;
 COMPRESSOR_COUNTER<ADDRINT, UINT32, COUNTER_HIT_MISS> profile;
 
 static UINT64 icount = 0;
-const UINT32 INSTR_COUNT_PRINT_INTERVAL = 100000000;
+const UINT32 INSTR_COUNT_INTERVAL = 100000;
 static UINT32 tempcount = 0;
 static std::vector<UINT64> icounts;
 
@@ -221,12 +221,11 @@ struct less_second {
 */
 VOID printDCacheToCSV() 
 {
-  if (icounts.size() == 0) {
+  if (icounts.size() != 0) {
     // print instruction counts as first row
     std::vector<UINT64>::iterator vit = icounts.begin();
     csvOutFile << *vit;
     for (; vit != icounts.end(); ++vit) {
-      std::cout << "," << *vit;
       csvOutFile << "," << *vit;
     }
     csvOutFile << std::endl << std::endl;
@@ -255,10 +254,10 @@ VOID docount(UINT32 c)
 { 
   icount += c; 
   tempcount += c;
-  if (tempcount >= INSTR_COUNT_PRINT_INTERVAL) {
-    icounts.push_back(icount);
-    tempcount -= INSTR_COUNT_PRINT_INTERVAL;
+  if (tempcount >= INSTR_COUNT_INTERVAL) {
+    tempcount -= INSTR_COUNT_INTERVAL;
     dl1->IncrementCacheIndex();
+    icounts.push_back(icount);
   }
 }
 
