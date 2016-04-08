@@ -129,7 +129,8 @@ typedef  COUNTER_ARRAY<UINT64, COUNTER_NUM> COUNTER_HIT_MISS;
 COMPRESSOR_COUNTER<ADDRINT, UINT32, COUNTER_HIT_MISS> profile;
 
 static UINT64 icount = 0;
-const UINT32 INSTR_COUNT_INTERVAL = 100000;
+const UINT32 INSTR_COUNT_INTERVAL = 10000000;
+
 static UINT32 tempcount = 0;
 static std::vector<UINT64> icounts;
 
@@ -225,9 +226,11 @@ VOID printDCacheToCSV()
     // print instruction counts as first row
     std::vector<UINT64>::iterator vit = icounts.begin();
     csvOutFile << *vit;
+    vit++;
     for (; vit != icounts.end(); ++vit) {
       csvOutFile << "," << *vit;
     }
+    csvOutFile << "," << icount;
     csvOutFile << std::endl << std::endl;
   }
 
@@ -252,7 +255,7 @@ VOID printDCacheToCSV()
 
 VOID docount(UINT32 c) 
 { 
-  icount += c; 
+  icount += c;
   tempcount += c;
   if (tempcount >= INSTR_COUNT_INTERVAL) {
     tempcount -= INSTR_COUNT_INTERVAL;
