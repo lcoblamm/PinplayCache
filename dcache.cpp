@@ -31,11 +31,17 @@ END_LEGAL */
 //
 // @ORIGINAL_AUTHOR: Artur Klauser
 // @EXTENDED: Rodric Rabbah (rodric@gmail.com) 
+// @EDITED: Lynne Coblammers
 //
 
 /*! @file
  *  This file contains an ISA-portable cache simulator
  *  data cache hierarchies
+ */
+
+/*
+ * The data cache has been modified to print the data access map
+ * to a CSV file at specified instruction intervals.
  */
 
 
@@ -128,10 +134,16 @@ typedef  COUNTER_ARRAY<UINT64, COUNTER_NUM> COUNTER_HIT_MISS;
 // conceptually this is an array indexed by instruction address
 COMPRESSOR_COUNTER<ADDRINT, UINT32, COUNTER_HIT_MISS> profile;
 
+// holds the total instruction count
 static UINT64 icount = 0;
+
+// the interval to print the data access map at
 const UINT32 INSTR_COUNT_INTERVAL = 10000000;
 
-static UINT32 tempcount = 0;
+// holds number of instructions in current interval
+static UINT32 intervalCount = 0;
+
+// vector of number of instructions in each interval
 static std::vector<UINT64> icounts;
 
 /* ===================================================================== */
@@ -219,11 +231,15 @@ struct less_second {
 /*
   Prints contents of entire data cache access map in csv format with address
   followed by each entry in the vector
+  File format:
+    Row 1: comma separated instruction counts corresponding to each access count
+    Row 3-end: Data address in base 10, followed by number of data accesses at
+      between instruction counts listed in first row
 */
 VOID printDCacheToCSV() 
 {
   if (icounts.size() != 0) {
-    // print instruction counts as first row
+    // print instruction counts as first row of file
     std::vector<UINT64>::iterator vit = icounts.begin();
     csvOutFile << *vit;
     vit++;
@@ -253,12 +269,14 @@ VOID printDCacheToCSV()
   csvOutFile << std::endl;
 }
 
+// Update counts by c instructions
 VOID docount(UINT32 c) 
 { 
   icount += c;
-  tempcount += c;
-  if (tempcount >= INSTR_COUNT_INTERVAL) {
-    tempcount -= INSTR_COUNT_INTERVAL;
+  intervalCount += c;
+  // when intervalCount exceeds interval, add count to icounts vector and update cache index in cache
+  if (intervalCount >= INSTR_COUNT_INTERVAL) {
+    intervalCount -= INSTR_COUNT_INTERVAL;
     dl1->IncrementCacheIndex();
     icounts.push_back(icount);
   }
@@ -382,6 +400,7 @@ VOID Fini(int code, VOID * v)
         
   outFile << "Number of total instructions: " << icount << endl;
 
+  // print CSV file
   printDCacheToCSV();
 
   if ( KnobTrackLoads.Value() || KnobTrackStores.Value() ) {
