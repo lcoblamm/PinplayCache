@@ -30,10 +30,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 END_LEGAL */
 //
 // @ORIGINAL_AUTHOR: Artur Klauser
+// @EDITED: Lynne Coblammers
 //
 
 /*! @file
- *  This file contains a configurable cache class
+ *  This file contains a configurable cache class.
+ *  It has been edited to store the data accesses for each address
+ *  in a vector.
  */
 
 #ifndef PIN_CACHE_H
@@ -336,7 +339,6 @@ class CACHE_BASE
     string StatsLong(string prefix = "", CACHE_TYPE = CACHE_TYPE_DCACHE) const;
     map<ADDRINT, std::vector<long> > ReturnMap();
     map<ADDRINT, long> Return_Replace_Map();
-    void ClearMaps();
     void IncrementCacheIndex();
 };
 
@@ -367,11 +369,6 @@ map<ADDRINT, std::vector<long> > CACHE_BASE::ReturnMap() {
 }
 map<ADDRINT, long> CACHE_BASE::Return_Replace_Map() {
 	return cache_replace_map;
-}
-
-void CACHE_BASE::ClearMaps() {
-  cache_access_map.clear();
-  cache_replace_map.clear();
 }
 
 void CACHE_BASE::IncrementCacheIndex() {
