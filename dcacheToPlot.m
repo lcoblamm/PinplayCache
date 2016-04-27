@@ -1,44 +1,50 @@
-filepath = '~/dev/EECS/399/dcachecsv.dat';
-origData = csvread(filepath);
+% file name and path to dcache csv output
+filename = 'bzip2_2_r9';
+filedir = '~/dev/EECS/399/results/spec_30m';
+% cutoff point based on number of accese  for which addresses to include data
+% e.g. a cutoff of 0.01 means that any addresses that had less than 1% of
+% the overall maximum number of accesses across all intervals are thrown out
+cutoffPoint = 0.01;
 
-% TODO: decide if this is valid cutoff
+% generate full file names for input and output files
+csvname = strcat('dcachecsv_', filename, '.out');
+csvfile = fullfile(filedir, 'csv', csvname);
+figname = strcat(filename, '.png');
+figfile = fullfile(filedir, 'figure', figname);
+
+% read csv file in as is
+origData = csvread(csvfile);
+
+% pull top row off for instruction intervals
+xVals = origData(1,1:end - 2)';
+
+% pull first column off for addresses
+yVals = origData(2:end,1);
+
+% trim matrix data (take off address, instruction intervals, and final
+% column)
+heatMatrix = origData(2:end,2:end - 1);
+
 % determine cutoff point for number of accesses
-z = origData(:,3);
-maxAccesses = max(z);
-cutoff = 0.05 * maxAccesses;
-
-% find unique values for instruction count and addresses
-x = origData(:,1);
-y = origData(:,2);
-xVals = unique(x);
-yVals = unique(y);
-
-mappedData = origData;
-% replace x values in data with corresponding index in xVals
-for n = 1:size(xVals,1)
-   mappedData(mappedData(:,1) == xVals(n),1) = n; 
-end
-
-% replace y values in data with corresponding index in yVals
-for n = 1:size(yVals,1)
-   mappedData(mappedData(:,2) == yVals(n),2) = n; 
-end
-
-% create matrix containing only # of accesses
-heatMatrix = accumarray(mappedData(:,[2 1]), mappedData(:,3));
+maxAccesses = max(heatMatrix(:));
+cutoff = cutoffPoint * maxAccesses;
 
 % remove rows where none of accesses meet or exceed cutoff
 iRemove = all((heatMatrix(:,:) < cutoff),2);
 heatMatrix(iRemove,:) = [];
 yVals(iRemove,:) = [];
 
-% print heatmap in color
+% print heatmap in color with labeled x and y values
 colormap('parula');
-imagesc(heatMatrix);
+clims = [0 maxAccesses];
+imagesc(heatMatrix, clims);
 colorbar;
 xlabel('instruction count'); 
 ylabel('address');
 set(gca,'Xtick',1:size(xVals),'XTickLabel',xVals);
-% translate y value to hex
+% translate y value (addresses) to hex
 yHex = dec2hex(yVals);
 set(gca,'Ytick',1:size(yVals),'YTickLabel',yHex);
+
+% save figure
+saveas(gcf, figfile);
