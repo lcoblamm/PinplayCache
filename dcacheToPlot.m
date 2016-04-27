@@ -1,5 +1,6 @@
 % file name and path to dcache csv output
-filename = 'bzip2_2_r9';
+filename = 'dcachecsv.out';
+figurename = 'dcachefig.png';
 filedir = '~/dev/EECS/399/results/spec_30m';
 % cutoff point based on number of accese  for which addresses to include data
 % e.g. a cutoff of 0.01 means that any addresses that had less than 1% of
@@ -7,10 +8,8 @@ filedir = '~/dev/EECS/399/results/spec_30m';
 cutoffPoint = 0.01;
 
 % generate full file names for input and output files
-csvname = strcat('dcachecsv_', filename, '.out');
-csvfile = fullfile(filedir, 'csv', csvname);
-figname = strcat(filename, '.png');
-figfile = fullfile(filedir, 'figure', figname);
+csvfile = fullfile(filedir, csvname);
+figfile = fullfile(filedir, figname);
 
 % read csv file in as is
 origData = csvread(csvfile);
